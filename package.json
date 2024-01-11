@@ -1,9 +1,13 @@
 {
-  "name": "crawler",
+  "name": "crawlie",
   "version": "1.0.0",
   "description": "",
-  "bin": "src/index.mjs",
+  "type": "module",
+  "bin": {
+    ".": "src/bin.js"
+  },
   "scripts": {
+    "crawl": "node src/index.js",
     "preview": "serve dist"
   },
   "keywords": [],
