@@ -17,10 +17,27 @@ const prerendered = new Set();
 const RESOURCE_PREFIXES = ["http", ".", "/"];
 
 /**
+ * @param {URL} current_url
+ * @param {string[]} resources
+ * @param {import("./types.js").Config} config
+ */
+function validate(current_url, resources, config) {
+  for (const resource of resources) {
+    const url = new URL(resource, current_url);
+    if (url.origin !== config.targetUrl.origin) {
+      console.log(`Skipping resource: ${url.pathname}`);
+      continue;
+    }
+    prerender(url, config);
+  }
+}
+
+/**
+ * @param {URL} current_url
  * @param {string} html
  * @param {import("./types.js").Config} config
  */
-async function crawl(html, config) {
+async function crawl(current_url, html, config) {
   const srcset_strings = html.matchAll(SRCSET_REGEX);
   for (const srcset_string of srcset_strings) {
     const results = srcset_string.toString().split(" ");
@@ -31,25 +48,15 @@ async function crawl(html, config) {
       });
     });
 
-    for (const resource of resources) {
-      const url = new URL(resource, config.targetUrl);
-      if (url.origin !== config.targetUrl.origin) {
-        console.log(`Skipping srcset resource: ${url.pathname}`);
-        continue;
-      }
-      prerender(url, config);
-    }
+    validate(current_url, resources, config);
   }
 
-  const related_resources = html.matchAll(RESOURCE_REGEX);
-  for (const resource of related_resources) {
-    const url = new URL(resource.toString(), config.targetUrl);
-    if (url.origin !== config.targetUrl.origin) {
-      console.log(`Skipping: ${url.pathname}`);
-      continue;
-    }
-    prerender(url, config);
+  const regex_results = html.matchAll(RESOURCE_REGEX);
+  let resources = [];
+  for (const item of regex_results) {
+    resources.push(item.toString());
   }
+  validate(current_url, resources, config);
 }
 
 /**
@@ -74,7 +81,7 @@ async function save(response, config) {
   let text = await response.text();
 
   if (response.headers.get("content-type")?.includes("text/html")) {
-    await crawl(text, config);
+    await crawl(new URL(response.url), text, config);
 
     if (!output_path.endsWith("/") && !output_path.endsWith(".html")) {
       output_path += ".html";
